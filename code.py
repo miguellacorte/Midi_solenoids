@@ -141,38 +141,48 @@ def handle_note_off(note):
 
 # Main execution
 print("Starting up... Looking for MIDI files.")
-midi_directory = "/midi_files"  # Directory containing MIDI files
+midi_directory = "/midi_files"  # Directory containing subdirectories of MIDI files
 
 while True:
     try:
-        # List all MIDI files in the directory, excluding hidden/system files
-        midi_files = [f for f in os.listdir(midi_directory) if f.endswith('.mid') and not f.startswith('.')]
-        if not midi_files:
-            print("No MIDI files found in the directory.")
+        # List all subdirectories in the midi_directory
+        subdirectories = [d for d in os.listdir(midi_directory) if d.isdigit()]
+        subdirectories.sort(key=int)  # Sort numerically
+        
+        if not subdirectories:
+            print("No numbered subdirectories found in the directory.")
         else:
-            # Select a random MIDI file
-            selected_file = random.choice(midi_files)
-            # Manually concatenate the directory and file name
-            midi_file_path = midi_directory + "/" + selected_file
-            print(f"Selected MIDI file: {midi_file_path}")
+            for subdir in subdirectories:
+                subdir_path = midi_directory + "/" + subdir
+                # List all MIDI files in the subdirectory, excluding hidden/system files
+                midi_files = [f for f in os.listdir(subdir_path) if f.endswith('.mid') and not f.startswith('.')]
+                if not midi_files:
+                    print(f"No MIDI files found in {subdir_path}.")
+                else:
+                    # Select a random MIDI file
+                    selected_file = random.choice(midi_files)
+                    # Manually concatenate the directory and file name
+                    midi_file_path = subdir_path + "/" + selected_file
+                    print(f"Selected MIDI file: {midi_file_path}")
 
-            with open(midi_file_path, "rb") as f:
-                print(f"Found MIDI file: {midi_file_path}")
-                file_size = f.seek(0, 2)
-                f.seek(0)
-                print(f"MIDI file size: {file_size} bytes")
-            print("Starting playback process...")
-            start_time = time.monotonic()
-            print(f"Playback will begin in 3 seconds (at {start_time + 3:.2f})")
-            play_midi_file(midi_file_path)
-            print("Finished playing MIDI file.")
+                    with open(midi_file_path, "rb") as f:
+                        print(f"Found MIDI file: {midi_file_path}")
+                        file_size = f.seek(0, 2)
+                        f.seek(0)
+                        print(f"MIDI file size: {file_size} bytes")
+                    print("Starting playback process...")
+                    start_time = time.monotonic()
+                    print(f"Playback will begin in 3 seconds (at {start_time + 3:.2f})")
+                    play_midi_file(midi_file_path)
+                    print("Finished playing MIDI file.")
+
+                print("Playback complete. Entering idle state.")
+                print("Resting for 10 seconds...")
+                time.sleep(10)  # 10 seconds delay between subdirectory playbacks
+
     except OSError as e:
         print(f"Error accessing MIDI files in {midi_directory}")
         print(f"Error: {e}")
-
-    print("Playback complete. Entering idle state.")
-    print("Resting for 10 seconds...")
-    time.sleep(10)  # 60 seconds delay
 
     # Check if the reset button was pressed
     if supervisor.runtime.serial_bytes_available:
