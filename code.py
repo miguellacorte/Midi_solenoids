@@ -11,6 +11,7 @@ import os  # Import os to handle directory operations
 import random  # Import random to select a file randomly
 
 print("Code started running")
+boot_time = time.monotonic()
 
 #  pins for the solenoid output signals
 noid_pins = [board.D5, board.D6, board.D9, board.D10]
@@ -28,87 +29,75 @@ for pin in noid_pins:
 notes = [60, 61, 62, 63]
 
 
-def play_midi_file(filename):
-    print(f"Starting to play {filename}")
-    start_time = time.monotonic()
+def load_midi_file(filename):
+    print(f"Loading {filename}")
+    with open(filename, "rb") as f:
+        return f.read()
+
+
+def play_midi_data(midi_data):
+    print("Starting playback")
     try:
-        with open(filename, "rb") as f:
-            print("Reading MIDI header...")
-            header = f.read(14)
-            if header[:4] != b"MThd" or struct.unpack(">I", header[4:8])[0] != 6:
-                print("Not a valid MIDI file")
-                return
+        if midi_data[:4] != b"MThd" or struct.unpack(">I", midi_data[4:8])[0] != 6:
+            print("Not a valid MIDI file")
+            return
 
-            format_type, num_tracks, time_division = struct.unpack(">HHH", header[8:14])
-            print("MIDI format: " + str(format_type) + 
-                  ", Tracks: " + str(num_tracks) + 
-                  ", Time Division: " + str(time_division))
+        format_type, num_tracks, time_division = struct.unpack(">HHH", midi_data[8:14])
+        print(f"MIDI format: {format_type}, Tracks: {num_tracks}, Time Division: {time_division}")
 
-            tempo = 500000  # microseconds per quarter note (120 BPM)
+        tempo = 500000  # microseconds per quarter note (120 BPM)
+        i = 14  # Start after the header
 
-            # Calculate the time remaining until playback should start
-            elapsed_time = time.monotonic() - start_time
-            remaining_delay = max(0, 3 - elapsed_time)
-            print(f"Waiting {remaining_delay:.2f} seconds before starting playback...")
-            time.sleep(remaining_delay)
+        for track in range(num_tracks):
+            print(f"Processing track {track + 1} of {num_tracks}")
+            track_start_time = time.monotonic()
+            
+            if midi_data[i:i+4] != b"MTrk":
+                print(f"Track {track + 1} is not valid")
+                continue
 
-            print("Starting playback now!")
-
-            for track in range(num_tracks):
-                print(f"Processing track {track + 1} of {num_tracks}")
-                track_start_time = time.monotonic()
+            track_length = struct.unpack(">I", midi_data[i+4:i+8])[0]
+            i += 8
+            track_end = i + track_length
+            
+            while i < track_end:
+                delta_time, i = read_variable_length(midi_data, i)
                 
-                track_header = f.read(8)
-                if track_header[:4] != b"MTrk":
-                    print(f"Track {track + 1} is not valid")
-                    continue
+                if time_division & 0x8000:
+                    frames_per_second = -(time_division >> 8)
+                    ticks_per_frame = time_division & 0x00FF
+                    d_ms = delta_time * 1000 / (frames_per_second * ticks_per_frame)
+                else:
+                    d_ms = (delta_time * tempo) / (time_division * 1000)
 
-                track_length = struct.unpack(">I", track_header[4:])[0]
-                track_data = f.read(track_length)
-                print(f"Track {track + 1} length: {track_length} bytes")
-                
-                i = 0
-                while i < len(track_data):
-                    delta_time, i = read_variable_length(track_data, i)
-                    
-                    if time_division & 0x8000:
-                        frames_per_second = -(time_division >> 8)
-                        ticks_per_frame = time_division & 0x00FF
-                        d_ms = delta_time * 1000 / (frames_per_second * ticks_per_frame)
-                    else:
-                        d_ms = (delta_time * tempo) / (time_division * 1000)
+                time.sleep(d_ms / 1000)  # Convert to seconds
+                event_type = midi_data[i]
+                i += 1
 
-                    time.sleep(d_ms / 1000)  # Convert to seconds
-                    event_type = track_data[i]
-                    i += 1
+                if event_type == 0xFF:  # Meta event
+                    meta_type = midi_data[i]
+                    length, i = read_variable_length(midi_data, i + 1)
+                    if meta_type == 0x51:  # Set Tempo
+                        tempo = struct.unpack(">I", b'\x00' + midi_data[i:i+3])[0]
+                        print(f"Tempo changed to {60000000 / tempo} BPM")
+                    i += length
+                elif event_type == 0xF0 or event_type == 0xF7:  # SysEx event
+                    length, i = read_variable_length(midi_data, i)
+                    i += length
+                elif event_type & 0x80:  # MIDI event
+                    if event_type & 0xF0 in (0x80, 0x90):  # Note Off or Note On
+                        note = midi_data[i]
+                        velocity = midi_data[i + 1]
+                        i += 2
 
-                    if event_type == 0xFF:  # Meta event
-                        meta_type = track_data[i]
-                        length, i = read_variable_length(track_data, i + 1)
-                        if meta_type == 0x51:  # Set Tempo
-                            tempo = struct.unpack(">I", b'\x00' + track_data[i:i+3])[0]
-                            print(f"Tempo changed to {60000000 / tempo} BPM")
-                        i += length
-                    elif event_type == 0xF0 or event_type == 0xF7:  # SysEx event
-                        length, i = read_variable_length(track_data, i)
-                        i += length
-                    elif event_type & 0x80:  # MIDI event
-                        if event_type & 0xF0 in (0x80, 0x90):  # Note Off or Note On
-                            note = track_data[i]
-                            velocity = track_data[i + 1]
-                            i += 2
+                        if event_type & 0xF0 == 0x90 and velocity > 0:
+                            handle_note_on(note)
+                        else:
+                            handle_note_off(note)
+            
+            track_end_time = time.monotonic()
+            print(f"Track {track + 1} processed in {track_end_time - track_start_time:.2f} seconds")
 
-                            if event_type & 0xF0 == 0x90 and velocity > 0:
-                                handle_note_on(note)
-                            else:
-                                handle_note_off(note)
-                
-                track_end_time = time.monotonic()
-                print("Track " + str(track + 1) + " processed in " +
-                      f"{track_end_time - track_start_time:.2f} seconds")
-
-        end_time = time.monotonic()
-        print(f"Total MIDI processing time: {end_time - start_time:.2f} seconds")
     except Exception as e:
         print(f"Error playing MIDI file: {e}")
 
@@ -165,15 +154,20 @@ while True:
                     midi_file_path = subdir_path + "/" + selected_file
                     print(f"Selected MIDI file: {midi_file_path}")
 
-                    with open(midi_file_path, "rb") as f:
-                        print(f"Found MIDI file: {midi_file_path}")
-                        file_size = f.seek(0, 2)
-                        f.seek(0)
-                        print(f"MIDI file size: {file_size} bytes")
-                    print("Starting playback process...")
-                    start_time = time.monotonic()
-                    print(f"Playback will begin in 3 seconds (at {start_time + 3:.2f})")
-                    play_midi_file(midi_file_path)
+                    # Load MIDI data
+                    midi_data = load_midi_file(midi_file_path)
+                    print(f"MIDI file loaded, size: {len(midi_data)} bytes")
+
+                    # Calculate time until next 5-second mark
+                    current_time = time.monotonic()
+                    time_since_boot = current_time - boot_time
+                    time_to_next_5s = 5 - (time_since_boot % 5)
+                    
+                    print(f"Waiting {time_to_next_5s:.2f} seconds before starting playback...")
+                    time.sleep(time_to_next_5s)
+
+                    print("Starting playback now!")
+                    play_midi_data(midi_data)
                     print("Finished playing MIDI file.")
 
                 print("Playback complete. Entering idle state.")
