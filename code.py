@@ -158,10 +158,9 @@ while True:
                     midi_data = load_midi_file(midi_file_path)
                     print(f"MIDI file loaded, size: {len(midi_data)} bytes")
 
-                    # Calculate time until next 5-second mark
-                    current_time = time.monotonic()
-                    time_since_boot = current_time - boot_time
-                    time_to_next_5s = 5 - (time_since_boot % 5)
+                    # Reset boot_time and calculate wait time
+                    boot_time = time.monotonic()
+                    time_to_next_5s = 5 - ((boot_time - int(boot_time)) % 5)
                     
                     print(f"Waiting {time_to_next_5s:.2f} seconds before starting playback...")
                     time.sleep(time_to_next_5s)
@@ -170,9 +169,9 @@ while True:
                     play_midi_data(midi_data)
                     print("Finished playing MIDI file.")
 
-                print("Playback complete. Entering idle state.")
-                print("Resting for 10 seconds...")
-                time.sleep(10)  # 10 seconds delay between subdirectory playbacks
+                    print("Playback complete. Entering idle state.")
+                    print("Resting for 10 seconds...")
+                    time.sleep(10)  # 10 seconds delay between subdirectory playbacks
 
     except OSError as e:
         print(f"Error accessing MIDI files in {midi_directory}")
