@@ -28,6 +28,18 @@ for pin in noid_pins:
 #  MIDI note array
 notes = [60, 61, 62, 63]
 
+# Add this near the top of your file, after the imports
+SUBDIRECTORY_TEMPOS = {
+    "1": 500000,  # 120 BPM (500000 microseconds per quarter note)
+    "2": 500000,  # 120 BPM
+    "3": 500000,  # 120 BPM
+    "4": 500000,  # 120 BPM
+    "5": 689655,  # 87 BPM
+    "6": 517241,  # 116 BPM
+   
+    # Add more subdirectory-tempo mappings as needed
+}
+
 
 def load_midi_file(filename):
     print(f"Loading {filename}")
@@ -35,7 +47,7 @@ def load_midi_file(filename):
         return f.read()
 
 
-def play_midi_data(midi_data):
+def play_midi_data(midi_data, initial_tempo):
     print("Starting playback")
     try:
         if midi_data[:4] != b"MThd" or struct.unpack(">I", midi_data[4:8])[0] != 6:
@@ -45,7 +57,7 @@ def play_midi_data(midi_data):
         format_type, num_tracks, time_division = struct.unpack(">HHH", midi_data[8:14])
         print(f"MIDI format: {format_type}, Tracks: {num_tracks}, Time Division: {time_division}")
 
-        tempo = 500000  # microseconds per quarter note (120 BPM)
+        tempo = initial_tempo  # Use the provided initial tempo
         i = 14  # Start after the header
 
         for track in range(num_tracks):
@@ -118,14 +130,14 @@ def handle_note_on(note):
     for i, note_value in enumerate(notes):
         if note == note_value:
             noids[i].value = True
-            print(f"Note On: {note}")
+            # print(f"Note On: {note}")
 
 
 def handle_note_off(note):
     for i, note_value in enumerate(notes):
         if note == note_value:
             noids[i].value = False
-            print(f"Note Off: {note}")
+            # print(f"Note Off: {note}")
 
 
 # Main execution
@@ -158,6 +170,10 @@ while True:
                     midi_data = load_midi_file(midi_file_path)
                     print(f"MIDI file loaded, size: {len(midi_data)} bytes")
 
+                    # Get the tempo for this subdirectory, or use a default
+                    initial_tempo = SUBDIRECTORY_TEMPOS.get(subdir, 500000)
+                    print(f"Using initial tempo for subdirectory {subdir}: {60000000 / initial_tempo:.2f} BPM")
+
                     # Reset boot_time and calculate wait time
                     boot_time = time.monotonic()
                     time_to_next_5s = 5 - ((boot_time - int(boot_time)) % 5)
@@ -166,7 +182,7 @@ while True:
                     time.sleep(time_to_next_5s)
 
                     print("Starting playback now!")
-                    play_midi_data(midi_data)
+                    play_midi_data(midi_data, initial_tempo)
                     print("Finished playing MIDI file.")
 
                     print("Playback complete. Entering idle state.")
