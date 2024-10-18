@@ -30,14 +30,11 @@ notes = [60, 61, 62, 63]
 
 # Add this near the top of your file, after the imports
 SUBDIRECTORY_TEMPOS = {
-    "1": 500000,  # 120 BPM (500000 microseconds per quarter note)
-    "2": 500000,  # 120 BPM
-    "3": 500000,  # 120 BPM
-    "4": 500000,  # 120 BPM
-    "5": 689655,  # 87 BPM
-    "6": 517241,  # 116 BPM
-   
-    # Add more subdirectory-tempo mappings as needed
+    "1": {"tempo": 500000, "silence": 47.702},  # 120 BPM, 47.702 seconds length
+    "2": {"tempo": 500000, "silence": 104.438},  # 120 BPM, 104.438 seconds length
+    "3": {"tempo": 500000, "silence": 88.0},  # 120 BPM, 88 seconds length
+    "4": {"tempo": 689655, "silence": 71.724},  # 87 BPM, 71.724 seconds length
+    "5": {"tempo": 517241, "silence": 66.207},  # 116 BPM, 66.207 seconds length
 }
 
 
@@ -55,7 +52,9 @@ def play_midi_data(midi_data, initial_tempo):
             return
 
         format_type, num_tracks, time_division = struct.unpack(">HHH", midi_data[8:14])
-        print(f"MIDI format: {format_type}, Tracks: {num_tracks}, Time Division: {time_division}")
+        print("MIDI format: " + str(format_type) +
+              ", Tracks: " + str(num_tracks) +
+              ", Time Division: " + str(time_division))
 
         tempo = initial_tempo  # Use the provided initial tempo
         i = 14  # Start after the header
@@ -108,7 +107,8 @@ def play_midi_data(midi_data, initial_tempo):
                             handle_note_off(note)
             
             track_end_time = time.monotonic()
-            print(f"Track {track + 1} processed in {track_end_time - track_start_time:.2f} seconds")
+            print(f"Track {track + 1} processed in " +
+                  f"{track_end_time - track_start_time:.2f} seconds")
 
     except Exception as e:
         print(f"Error playing MIDI file: {e}")
@@ -140,13 +140,17 @@ def handle_note_off(note):
             # print(f"Note Off: {note}")
 
 
+def handle_silence(duration):
+    print(f"Silence period for {duration:.2f} seconds")
+    time.sleep(duration)
+
+
 # Main execution
 print("Starting up... Looking for MIDI files.")
 midi_directory = "/midi_files"  # Directory containing subdirectories of MIDI files
 
 while True:
     try:
-        # List all subdirectories in the midi_directory
         subdirectories = [d for d in os.listdir(midi_directory) if d.isdigit()]
         subdirectories.sort(key=int)  # Sort numerically
         
@@ -155,39 +159,44 @@ while True:
         else:
             for subdir in subdirectories:
                 subdir_path = midi_directory + "/" + subdir
-                # List all MIDI files in the subdirectory, excluding hidden/system files
                 midi_files = [f for f in os.listdir(subdir_path) if f.endswith('.mid') and not f.startswith('.')]
-                if not midi_files:
-                    print(f"No MIDI files found in {subdir_path}.")
+                
+                # Get the tempo and silence duration for this subdirectory
+                subdir_info = SUBDIRECTORY_TEMPOS.get(subdir,
+                                                          {"tempo": 500000, "silence": 60})
+                initial_tempo = subdir_info["tempo"]
+                silence_duration = subdir_info["silence"]
+
+                # 55% chance of silence or playback
+                if random.random() < 0.55:
+                    print(f"Choosing silence for subdirectory {subdir}")
+                    handle_silence(silence_duration)
                 else:
-                    # Select a random MIDI file
-                    selected_file = random.choice(midi_files)
-                    # Manually concatenate the directory and file name
-                    midi_file_path = subdir_path + "/" + selected_file
-                    print(f"Selected MIDI file: {midi_file_path}")
+                    if not midi_files:
+                        print(f"No MIDI files found in {subdir_path}.")
+                    else:
+                        selected_file = random.choice(midi_files)
+                        midi_file_path = subdir_path + "/" + selected_file
+                        print(f"Selected MIDI file: {midi_file_path}")
 
-                    # Load MIDI data
-                    midi_data = load_midi_file(midi_file_path)
-                    print(f"MIDI file loaded, size: {len(midi_data)} bytes")
+                        midi_data = load_midi_file(midi_file_path)
+                        print(f"MIDI file loaded, size: {len(midi_data)} bytes")
+                        print(f"Using initial tempo for subdirectory {subdir}: " +
+                              f"{60000000 / initial_tempo:.2f} BPM")
 
-                    # Get the tempo for this subdirectory, or use a default
-                    initial_tempo = SUBDIRECTORY_TEMPOS.get(subdir, 500000)
-                    print(f"Using initial tempo for subdirectory {subdir}: {60000000 / initial_tempo:.2f} BPM")
+                        # Reset boot_time and calculate wait time
+                        boot_time = time.monotonic()
+                        time_to_next_5s = 5 - ((boot_time - int(boot_time)) % 5)
+                        
+                        print(f"Waiting {time_to_next_5s:.2f} seconds before starting playback...")
+                        time.sleep(time_to_next_5s)
 
-                    # Reset boot_time and calculate wait time
-                    boot_time = time.monotonic()
-                    time_to_next_5s = 5 - ((boot_time - int(boot_time)) % 5)
-                    
-                    print(f"Waiting {time_to_next_5s:.2f} seconds before starting playback...")
-                    time.sleep(time_to_next_5s)
-
-                    print("Starting playback now!")
-                    play_midi_data(midi_data, initial_tempo)
-                    print("Finished playing MIDI file.")
-
-                    print("Playback complete. Entering idle state.")
-                    print("Resting for 10 seconds...")
-                    time.sleep(10)  # 10 seconds delay between subdirectory playbacks
+                        print("Starting playback now!")
+                        play_midi_data(midi_data, initial_tempo)
+                        print("Finished playing MIDI file.")
+                print("Playback or silence complete. Entering idle state.")
+                print("Resting for 30 seconds...")
+                time.sleep(30)  # 30 seconds delay between subdirectory playbacks
 
     except OSError as e:
         print(f"Error accessing MIDI files in {midi_directory}")
