@@ -1,7 +1,20 @@
 # MIDI Solenoid Player
 
+![Exhibition IMG](public/IMG_7106.jpg)
+
+
 ## Project Overview
 This project is a MIDI file player that controls solenoids to create physical sound or movement based on MIDI notes. It's designed to run on a microcontroller and can play MIDI files from multiple subdirectories in a specific order.
+
+## Exhibition Information
+This project is part of the ["»ensamble«"](https://carmenaraujoarte.com/exhibiciones_108_ensamble) exhibition at Carmen Araujo Arte gallery in Caracas, Venezuela:
+
+- **Exhibition #108: »ensamble«**
+- **Artists:** Armando Pantoja, Miguel La Corte, Pepe López
+- **Dates:** October 19, 2024 - November 24, 2024
+- **Location:** HLTPC. Secadero 2, Caracas
+
+The exhibition brings together three artists from different disciplines creating a visual and sonic essay through rhythm. The installation features eighteen solenoids by musician Miguel La Corte distributed across a "tambor palitero" (traditional drum) crafted by drum maker Armando Pantoja and 6 paintings by visual artist Pepe López. Through this exercise, each rhythm reveals the understanding of the essential conditions that form time, proposing rhythm as a way to define and express time through culture.
 
 ## How It Works
 1. The system boots up and looks for numbered subdirectories (1, 2, 3, etc.) in a `/midi_files` directory.
@@ -17,6 +30,7 @@ This project is a MIDI file player that controls solenoids to create physical so
 - 4 solenoids connected to digital pins (D5, D6, D9, D10)
 - Power supply suitable for your solenoids
 - MicroSD card module (if your microcontroller doesn't have built-in storage)
+
 
 ## Software Requirements
 - CircuitPython firmware installed on your microcontroller
@@ -50,3 +64,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 - Based on original code by Liz Clark for Adafruit Industries
 - MIDI file parsing adapted for CircuitPython
+
+## Contact Information
+For more information about the exhibition:
+- Email: info@carmenaraujoarte.com
+- Phone: +58 2129433979
+- Address: Urb Sorokaima, Calle Rafael Rangel Sur
+  Hacienda La Trinidad Parque Cultural Secadero 2
+  CP 1080, Caracas, Venezuela
