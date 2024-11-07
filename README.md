@@ -65,10 +65,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Based on original code by Liz Clark for Adafruit Industries
 - MIDI file parsing adapted for CircuitPython
 
-## Contact Information
-For more information about the exhibition:
-- Email: info@carmenaraujoarte.com
-- Phone: +58 2129433979
-- Address: Urb Sorokaima, Calle Rafael Rangel Sur
-  Hacienda La Trinidad Parque Cultural Secadero 2
-  CP 1080, Caracas, Venezuela
+
